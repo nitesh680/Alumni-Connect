@@ -31,7 +31,8 @@ app.use("/api/agent", agentRoutes);
 
 const __dirname1 = path.resolve();
 
-if (process.env.NODE_ENV === "production") {
+// For Vercel deployment
+if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
   app.use(express.static(path.join(__dirname1, "/frontemd/build")));
 
   app.get("*", (req, res) =>
