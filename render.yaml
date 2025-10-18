@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: alumni-connect-backend
+    env: node
+    plan: free
+    buildCommand: npm ci --legacy-peer-deps
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+    healthCheckPath: /
+
+  - type: static
+    name: alumni-connect-frontend
+    rootDir: frontemd
+    buildCommand: npm ci --legacy-peer-deps && npm run build
+    staticPublishPath: build
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
