@@ -6,16 +6,23 @@ const generateToken = require("../config/generateToken");
 //@route           GET /api/user?search=
 //@access          Public
 const allUsers = asyncHandler(async (req, res) => {
-  const keyword = req.query.search
-    ? {
-        $or: [
-          { name: { $regex: req.query.search, $options: "i" } },
-          // { email: { $regex: req.query.search, $options: "i" } },
-          { company: { $regex: req.query.search, $options: "i" }},
-          { year:req.query.search},
-        ],
-      }
-    : {};
+  const search = (req.query.search || "").trim();
+  const or = [];
+
+  if (search) {
+    or.push(
+      { name: { $regex: search, $options: "i" } },
+      { email: { $regex: search, $options: "i" } },
+      { company: { $regex: search, $options: "i" } }
+    );
+
+    const yearNum = Number(search);
+    if (!Number.isNaN(yearNum)) {
+      or.push({ year: yearNum });
+    }
+  }
+
+  const keyword = or.length ? { $or: or } : {};
 
   const users = await User.find(keyword).find({ _id: { $ne: req.user._id } });
   res.send(users);

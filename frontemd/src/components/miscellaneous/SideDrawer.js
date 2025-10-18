@@ -86,7 +86,7 @@ function SideDrawer() {
     } catch (error) {
       toast({
         title: "Error Occured!",
-        description: "Failed to Load the Search Results",
+        description: (error.response && (error.response.data?.message || error.response.statusText)) || error.message || "Failed to Load the Search Results",
         status: "error",
         duration: 5000,
         isClosable: true,
@@ -117,7 +117,7 @@ function SideDrawer() {
     } catch (error) {
       toast({
         title: "Error fetching the chat",
-        description: error.message,
+        description: (error.response && (error.response.data?.message || error.response.statusText)) || error.message,
         status: "error",
         duration: 5000,
         isClosable: true,
@@ -126,6 +126,31 @@ function SideDrawer() {
     }
   };
   // console.log(searchResult);
+
+  // Ensure agent exists and open a 1:1 chat with it
+  const chatWithAgent = async () => {
+    try {
+      setLoadingChat(true);
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      // Ensure agent user and get its _id
+      const { data: agent } = await axios.get(`/api/agent/user`, config);
+      await accessChat(agent._id);
+    } catch (error) {
+      setLoadingChat(false);
+      toast({
+        title: "Unable to start chat with agent",
+        description: (error.response && (error.response.data?.message || error.response.statusText)) || error.message,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+        position: "bottom-left",
+      });
+    }
+  };
 
 
   return (
@@ -136,24 +161,33 @@ function SideDrawer() {
         alignItems="center"
         bg="white"
         w="100%"
-        p="5px 10px 5px 10px"
-        borderWidth="5px"
+        p="10px 16px"
+        borderWidth="0px"
+        borderRadius="lg"
+        boxShadow="md"
         
       >
-        <div style={{display:"flex", justifyContent:"space-between"}}>
-        <Tooltip label="Search Users to chat" hasArrow placement="bottom-end">
-          <Button colorScheme='blue' w="20%" variant="outline" px={9} py={5} mx={10} onClick={onOpen}>
-            <i className="fas fa-search"></i>
-            <Flex  fontSize="xl" d={{ base: "none", md: "flex" }} px={4}>
-              Search User Here
-            </Flex>
-          </Button>
-        </Tooltip>
-        <Flex colorScheme='blue' boxShadow='outline'  w="40%" mr="25%" mt="3"  justifyContent={"center"} fontSize="4xl" fontFamily="Work sans">
+        <div style={{display:"flex", alignItems:"center", gap:12}}>
+          <Tooltip label="Search Users to chat" hasArrow placement="bottom-end">
+            <Button colorScheme='blue' variant="outline" px={6} py={5} onClick={onOpen}>
+              <i className="fas fa-search"></i>
+              <Flex fontSize="md" d={{ base: "none", md: "flex" }} px={3}>
+                Search User Here
+              </Flex>
+            </Button>
+          </Tooltip>
+          <Tooltip label="Start a private chat with the AI agent" hasArrow placement="bottom-end">
+            <Button colorScheme='blue' variant="solid" px={6} py={5} onClick={chatWithAgent} isLoading={loadingChat}>
+              <i className="fas fa-robot"></i>
+              <Flex fontSize="md" d={{ base: "none", md: "flex" }} px={3}>
+                Chat with Agent
+              </Flex>
+            </Button>
+          </Tooltip>
+        </div>
+        <Flex w={{ base: "30%", md: "40%" }} justifyContent={"center"} fontSize={{ base: "2xl", md: "3xl" }} fontFamily="Work sans" fontWeight="700" color="brand.700">
           Alumni-Connect
         </Flex>
-
-        </div>
         <div>
           <Menu>
             <MenuButton p={1}>

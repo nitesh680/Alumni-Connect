@@ -2,7 +2,7 @@ import { FormControl } from "@chakra-ui/form-control";
 import { Input } from "@chakra-ui/input";
 import { Box, Text } from "@chakra-ui/layout";
 import "./styles.css";
-import { IconButton, Spinner, useToast } from "@chakra-ui/react";
+import { IconButton, Spinner, useToast, Button } from "@chakra-ui/react";
 import { getSender, getSenderFull } from "../config/ChatLogics";
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -15,7 +15,7 @@ import animationData from "../animations/typing.json";
 import io from "socket.io-client";
 import UpdateGroupChatModal from "./miscellaneous/UpdateGroupChatModal";
 import { ChatState } from "../Context/ChatProvider";
-const ENDPOINT = "http://localhost:5000";
+const ENDPOINT = process.env.REACT_APP_API_URL || "http://localhost:5000";
 var socket, selectedChatCompare;
 
 const SingleChat = ({ fetchAgain, setFetchAgain }) => {
@@ -98,6 +98,35 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         socket.emit("new message", data);
 
         setMessages([...messages, data]);
+
+        // If this chat includes the agent user, ask the agent and append its reply
+        const hasAgent = Array.isArray(selectedChat?.users) && selectedChat.users.some((u) => u?.email === "agent@system");
+        if (hasAgent) {
+          try {
+            const agentRes = await axios.post(
+              "/api/agent/ask",
+              {
+                chatId: selectedChat._id || selectedChat, // support both id or object
+                prompt: data.content,
+              },
+              config
+            );
+            const botMsg = agentRes.data;
+            // Broadcast bot message via socket so other clients receive it
+            socket.emit("new message", botMsg);
+            setMessages((prev) => [...prev, botMsg]);
+          } catch (agentErr) {
+            console.error(agentErr);
+            toast({
+              title: "Agent Error",
+              description: (agentErr.response && (agentErr.response.data?.message || agentErr.response.statusText)) || agentErr.message,
+              status: "error",
+              duration: 5000,
+              isClosable: true,
+              position: "bottom",
+            });
+          }
+        }
       } catch (error) {
         
         console.log(error);
@@ -111,6 +140,58 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
           
         });
       }
+    }
+  };
+
+  // Ensure the AI agent exists and add it to the current chat (or create a group with it)
+  const addAgentToChat = async () => {
+    try {
+      const config = {
+        headers: { Authorization: `Bearer ${user.token}` },
+      };
+      // Ensure/get agent user
+      const { data: agent } = await axios.get(`/api/agent/user`, config);
+
+      if (selectedChat?.isGroupChat) {
+        // Add agent to existing group chat
+        const { data: updated } = await axios.put(
+          "/api/chat/groupadd",
+          { chatId: selectedChat._id, userId: agent._id },
+          config
+        );
+        setSelectedChat(updated);
+        toast({
+          title: "Agent added to group",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+          position: "bottom",
+        });
+      } else if (selectedChat) {
+        // Create a new group with the other user + agent
+        const otherUser = selectedChat.users.find((u) => u._id !== user._id);
+        const usersArr = JSON.stringify([otherUser._id, agent._id]);
+        const payload = { name: `${getSender(user, selectedChat.users)} + Agent`, users: usersArr };
+        const { data: created } = await axios.post("/api/chat/group", payload, config);
+        setSelectedChat(created);
+        toast({
+          title: "Group with agent created",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+          position: "bottom",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Failed to add agent",
+        description:
+          (err.response && (err.response.data?.message || err.response.statusText)) || err.message,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+        position: "bottom",
+      });
     }
   };
 
@@ -175,8 +256,8 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         <>
           <Text
             fontSize={{ base: "28px", md: "30px" }}
-            pb={3}
-            px={2}
+            pb={2}
+            px={3}
             w="100%"
             fontFamily="Work sans"
             d="flex"
@@ -195,6 +276,9 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                   <ProfileModal
                     user={getSenderFull(user, selectedChat.users)}
                   />
+                  <Button size="sm" ml={3} onClick={addAgentToChat} colorScheme="blue">
+                    Add Agent
+                  </Button>
                 </>
               ) : (
                 <>
@@ -204,6 +288,9 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                     fetchAgain={fetchAgain}
                     setFetchAgain={setFetchAgain}
                   />
+                  <Button size="sm" ml={3} onClick={addAgentToChat} colorScheme="blue">
+                    Add Agent
+                  </Button>
                 </>
               ))}
           </Text>
@@ -211,11 +298,14 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
             d="flex"
             flexDir="column"
             justifyContent="flex-end"
-            p={3}
-            bg="#E8E8E8"
+            p={4}
+            bg="white"
             w="100%"
             h="100%"
             borderRadius="lg"
+            borderWidth="1px"
+            borderColor="gray.200"
+            boxShadow="md"
             overflowY="auto"
           >
             {loading ? (
@@ -252,7 +342,6 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
               )}
               <Input
                 variant="filled"
-                bg="#E0E0E0"
                 placeholder="Enter a message.."
                 value={newMessage}
                 onChange={typingHandler}
