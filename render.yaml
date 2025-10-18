@@ -11,11 +11,12 @@ services:
         value: production
     healthCheckPath: /
 
-  - type: static_site
+  - type: web
     name: alumni-connect-frontend
+    env: static
     rootDir: frontemd
     buildCommand: npm ci --legacy-peer-deps && npm run build
-    publishPath: build
+    staticPublishPath: build
     routes:
       - type: rewrite
         source: /*
