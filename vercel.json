@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "buildCommand": "cd frontemd && npm install && npm run build",
+  "outputDirectory": "frontemd/build",
+  "installCommand": "npm install",
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/.*", "dest": "/index.html" }
+  ],
+  "env": {
+    "GOOGLE_API_KEY": "@google_api_key",
+    "MONGO_URI": "@mongo_uri",
+    "JWT_SECRET": "@jwt_secret"
+  }
+}
